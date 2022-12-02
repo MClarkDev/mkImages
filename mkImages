@@ -1,0 +1,64 @@
+#!/bin/bash
+
+ratio=$1
+if [ -z "$ratio" ]; then
+	ratio="16-9"
+fi
+
+height=$2
+if [ -z "$height" ]; then
+	height=1080
+fi
+
+{
+cat <<EOF
+(define (make-image fname ratio newHeight)
+	(print "Making image...")
+	(print (string-append "Loading: " fname))
+	(let*
+		(
+			(inFile (string-append fname ".xcf"))
+			(theImage (car (gimp-file-load RUN-NONINTERACTIVE inFile inFile)))
+			(theLayer (car (gimp-image-get-layer-by-name theImage ratio)))
+
+			(imgWidth (car (gimp-drawable-width theLayer)))
+			(imgHeight (car (gimp-drawable-height theLayer)))
+
+			(offsets (gimp-drawable-offsets theLayer))
+			(offsetX (car offsets))
+			(offsetY (car (cdr offsets)))
+
+			(ratioX (string->number (car (strbreakup ratio "-"))))
+			(ratioY (string->number (car (cdr (strbreakup ratio "-")))))
+
+			(newWidth (round (* newHeight (/ ratioX ratioY))))
+		)
+		(print (string-append "Processing: " inFile " as " ratio))
+		(gimp-image-crop theImage imgWidth imgHeight offsetX offsetY)
+		(gimp-image-scale theImage newWidth newHeight)
+		(let*
+			(
+				(pngImg (car (gimp-image-flatten theImage)))
+				(outSize (number->string newHeight))
+				(outName (string-append fname ".png"))
+				(outFile (string-append "render/" ratio " @ " outSize "p/" outName))
+			)
+			(print (string-append "Exporting: " outFile))
+			(file-png-save-defaults RUN-NONINTERACTIVE theImage pngImg outFile outFile)
+			(gimp-image-delete theImage)
+		)
+		(print "Done.")
+	)
+)
+EOF
+
+mkdir -p "render/${ratio} @ ${height}p/"
+for src in *.xcf; do
+	img=${src%%.xcf}
+	echo "(make-image \"$img\" \"$ratio\" $height)"
+done
+
+echo "(gimp-quit 0)"
+
+} | gimp-2.10 -i -b -
+
