@@ -10,6 +10,11 @@ if [ -z "$height" ]; then
 	height=1080
 fi
 
+indir=$3
+if [ -z "$indir" ]; then
+	indir=$(pwd)
+fi
+
 {
 cat <<EOF
 (define (make-image fname ratio newHeight)
@@ -52,6 +57,7 @@ cat <<EOF
 )
 EOF
 
+cd "$indir"
 mkdir -p "render/${ratio} @ ${height}p/"
 for src in *.xcf; do
 	img=${src%%.xcf}
