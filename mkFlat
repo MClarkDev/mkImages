@@ -1,0 +1,43 @@
+#!/bin/bash
+
+indir=$1
+if [ -z "$indir" ]; then
+	echo "Source directory not set."
+	exit 1
+fi
+
+{
+cat <<EOF
+(gimp-message-set-handler 1)
+(define (convert-xcf-to-png _in _out)
+  (let* (
+      (image (car (gimp-file-load RUN-NONINTERACTIVE _in _in)))
+      (drawable (car (gimp-image-merge-visible-layers image CLIP-TO-IMAGE)))
+    )
+    (file-png-save RUN-NONINTERACTIVE image drawable _out _out 0 9 0 0 0 0 0)
+    (gimp-image-delete image)
+  )
+)
+(gimp-message "Setup complete.")
+EOF
+
+function walkDir {
+  mkdir -p "render/$1"
+  echo "(gimp-message \"Rendering Pack: $1\")"
+  for src in "$1/"*; do
+    if [[ -d "$src" ]]; then
+      walkDir "$src"
+    else
+      dst=render/${src%%.xcf}.png
+      echo "(gimp-message \"Rendering: [$src] to [$dst]\")"
+      echo "(convert-xcf-to-png \"$src\" \"$dst\")"
+    fi
+  done
+  echo "(gimp-message \"Pack complete: $1\")"
+}
+
+walkDir "$indir"
+echo "(gimp-message \"Render complete.\")"
+echo "(gimp-quit 0)"
+} | gimp-2.10 -i -b -
+

@@ -1,18 +1,19 @@
 #!/bin/bash
 
-ratio=$1
+indir=$1
+if [ -z "$indir" ]; then
+	echo "Source directory not set."
+	exit 1
+fi
+
+ratio=$2
 if [ -z "$ratio" ]; then
 	ratio="16-9"
 fi
 
-height=$2
+height=$3
 if [ -z "$height" ]; then
 	height=1080
-fi
-
-indir=$3
-if [ -z "$indir" ]; then
-	indir=$(pwd)
 fi
 
 {
@@ -57,13 +58,22 @@ cat <<EOF
 )
 EOF
 
-cd "$indir"
-mkdir -p "render/${ratio} @ ${height}p/"
-for src in *.xcf; do
-	img=${src%%.xcf}
-	echo "(make-image \"$img\" \"$ratio\" $height)"
-done
+function walkDir {
+  mkdir -p "render/${ratio} @ ${height}p/$1"
+  echo "(gimp-message \"Rendering Pack: $1\")"
+  for src in "$1/"*; do
+    if [[ -d "$src" ]]; then
+      walkDir "$src"
+    else
+      img=${src%%.xcf}
+      echo "(make-image \"$img\" \"$ratio\" $height)"
+    fi
+  done
+  echo "(gimp-message \"Pack complete: $1\")"
+}
 
+walkDir "$indir"
+echo "(gimp-message \"Render complete.\")"
 echo "(gimp-quit 0)"
 
 } | gimp-2.10 -i -b -
